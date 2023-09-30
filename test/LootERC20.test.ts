@@ -5,7 +5,7 @@ import signPermit from '../src/signPermit'
 import { Loot, MockBaal } from '../src/types';
 import { blockTime } from './utils/evm';
 import { mockBaalSetup, Signer } from './utils/fixtures';
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 const revertMessages = {
   lootAlreadyInitialized: 'Initializable: contract is already initialized',
@@ -40,7 +40,7 @@ describe('Loot ERC20 contract', function () {
 
   describe('constructor', async function () {
     it('creates an unusable template', async () => {
-      expect(await lootSingleton.owner()).to.equal(ethers.constants.AddressZero);
+      expect(await lootSingleton.owner()).to.equal(ethers.ZeroAddress);
     });
 
     it('require fail - initializer (setup) cant be called twice on loot', async () => {
@@ -71,7 +71,7 @@ describe('Loot ERC20 contract', function () {
     });
 
     it('require fail - non baal tries to mint', async () => {
-      await expect(users.s1.loot?.mint(users.s1.address, 100))
+      await expect(users.s1.loot!.mint(users.s1.address, 100))
         .to.be.revertedWith(revertMessages.lootNotBaal);
     });
 
@@ -98,7 +98,7 @@ describe('Loot ERC20 contract', function () {
 
     it('require fail - non baal tries to send to 0', async () => {
       await mockBaal.mintLoot(users.s2.address, 100);
-      await expect(users.s1.loot?.transfer(ethers.constants.AddressZero, 50))
+      await expect(users.s1.loot?.transfer(ethers.ZeroAddress, 50))
         .to.be.revertedWith(revertMessages.transferToZero);
     });
   });
@@ -148,6 +148,7 @@ describe('Loot ERC20 contract', function () {
     let signer: SignerWithAddress;
 
     this.beforeEach(async function () {
+      // @ts-expect-error
       signer = await ethers.getSigner(users.summoner.address);
     });
 
@@ -156,7 +157,7 @@ describe('Loot ERC20 contract', function () {
       const nonce = await lootToken.nonces(users.summoner.address);
       const permitSignature = await signPermit(
         chainId, // chainId
-        lootToken.address, // contractAddress
+        await lootToken.getAddress(), // contractAddress
         signer, // signer
         await lootToken.name(), // name -- replacing await lootToken.name()  with 'Loot' for new signing scope
         users.summoner.address, // owner
@@ -166,7 +167,7 @@ describe('Loot ERC20 contract', function () {
         deadline, // deadline
       );
 
-      const { v, r, s } = await ethers.utils.splitSignature(permitSignature);
+      const { v, r, s } = await ethers.Signature.from(permitSignature);
       await lootToken.permit(users.summoner.address, users.s1.address, 500, deadline, v, r, s); //  owner, spender, value, deadline, v, r, s
       const s1Allowance = await lootToken.allowance(users.summoner.address, users.s1.address);
       expect(s1Allowance).to.equal(500);
@@ -177,17 +178,17 @@ describe('Loot ERC20 contract', function () {
       const nonce = await lootToken.nonces(users.summoner.address)
       const permitSignature = await signPermit(
         chainId,
-        lootToken.address,
+        await lootToken.getAddress(),
         signer,
         await lootToken.name(), // name -- replacing await lootToken.name()  with 'Loot' for new signing scope
         users.summoner.address,
         users.s1.address,
         500,
-        nonce.add(1),
+        nonce + BigInt(1),
         deadline
       );
 
-      const { v, r, s } = await ethers.utils.splitSignature(permitSignature);
+      const { v, r, s } = await ethers.Signature.from(permitSignature);
       await expect(
         lootToken.permit(
           users.summoner.address,
@@ -204,7 +205,7 @@ describe('Loot ERC20 contract', function () {
       const nonce = await lootToken.nonces(users.summoner.address);
       const permitSignature = await signPermit(
         420,
-        lootToken.address,
+        await lootToken.getAddress(),
         signer,
         await lootToken.name(), // name -- replacing await lootToken.name()  with 'Loot' for new signing scope
         users.summoner.address,
@@ -214,7 +215,7 @@ describe('Loot ERC20 contract', function () {
         deadline
       );
 
-      const {v,r,s} = await ethers.utils.splitSignature(permitSignature);
+      const {v,r,s} = await ethers.Signature.from(permitSignature);
       await expect(
         lootToken.permit(
           users.summoner.address,
@@ -231,7 +232,7 @@ describe('Loot ERC20 contract', function () {
       const nonce = await lootToken.nonces(users.summoner.address);
       const permitSignature = await signPermit(
         chainId,
-        lootToken.address,
+        await lootToken.getAddress(),
         signer,
         'invalid',
         users.summoner.address,
@@ -240,7 +241,7 @@ describe('Loot ERC20 contract', function () {
         nonce,
         deadline
       );
-      const { v, r, s } = await ethers.utils.splitSignature(permitSignature);
+      const { v, r, s } = await ethers.Signature.from(permitSignature);
       await expect(
         lootToken.permit(
           users.summoner.address,
@@ -257,7 +258,7 @@ describe('Loot ERC20 contract', function () {
       const nonce = await lootToken.nonces(users.summoner.address)
       const permitSignature = await signPermit(
         chainId,
-        ethers.constants.AddressZero,
+        ethers.ZeroAddress,
         signer,
         await lootToken.name(), // name -- replacing await lootToken.name()  with 'Loot' for new signing scope
         users.summoner.address,
@@ -267,7 +268,7 @@ describe('Loot ERC20 contract', function () {
         deadline
       );
 
-      const { v, r, s } = await ethers.utils.splitSignature(permitSignature);
+      const { v, r, s } = await ethers.Signature.from(permitSignature);
       await expect(
         lootToken.permit(
           users.summoner.address,
@@ -284,7 +285,7 @@ describe('Loot ERC20 contract', function () {
       const nonce = await lootToken.nonces(users.summoner.address);
       const permitSignature = await signPermit(
         chainId,
-        lootToken.address,
+        await lootToken.getAddress(),
         signer,
         await lootToken.name(), // name -- replacing await lootToken.name()  with 'Loot' for new signing scope
         users.s1.address,
@@ -294,7 +295,7 @@ describe('Loot ERC20 contract', function () {
         deadline
       );
 
-      const { v, r, s } = await ethers.utils.splitSignature(permitSignature);
+      const { v, r, s } = await ethers.Signature.from(permitSignature);
       await expect(
         lootToken.permit(
           users.summoner.address,
@@ -311,7 +312,7 @@ describe('Loot ERC20 contract', function () {
       const nonce = await lootToken.nonces(users.summoner.address);
       const permitSignature = await signPermit(
         chainId,
-        lootToken.address,
+        await lootToken.getAddress(),
         signer,
         await lootToken.name(), // name -- replacing await lootToken.name()  with 'Loot' for new signing scope
         users.summoner.address,
@@ -321,7 +322,7 @@ describe('Loot ERC20 contract', function () {
         deadline
       );
 
-      const { v, r, s } = await ethers.utils.splitSignature(permitSignature);
+      const { v, r, s } = await ethers.Signature.from(permitSignature);
       await expect(
         lootToken.permit(
           users.summoner.address,
@@ -338,7 +339,7 @@ describe('Loot ERC20 contract', function () {
       const nonce = await lootToken.nonces(users.summoner.address);
       const permitSignature = await signPermit(
         chainId,
-        lootToken.address,
+        await lootToken.getAddress(),
         signer,
         await lootToken.name(), // name -- replacing await lootToken.name()  with 'Loot' for new signing scope
         users.summoner.address,
@@ -348,7 +349,7 @@ describe('Loot ERC20 contract', function () {
         deadline
       );
 
-      const { v, r, s } = await ethers.utils.splitSignature(permitSignature);
+      const { v, r, s } = await ethers.Signature.from(permitSignature);
       await expect(
         lootToken.permit(
           users.summoner.address,
@@ -365,7 +366,7 @@ describe('Loot ERC20 contract', function () {
       const nonce = await lootToken.nonces(users.summoner.address)
       const permitSignature = await signPermit(
         chainId,
-        lootToken.address,
+        await lootToken.getAddress(),
         signer,
         await lootToken.name(), // name -- replacing await lootToken.name()  with 'Loot' for new signing scope
         users.summoner.address,
@@ -375,7 +376,7 @@ describe('Loot ERC20 contract', function () {
         deadline - 1
       );
 
-      const { v, r, s } = await ethers.utils.splitSignature(permitSignature);
+      const { v, r, s } = await ethers.Signature.from(permitSignature);
       await expect(
         lootToken.permit(
           users.summoner.address,
@@ -392,7 +393,7 @@ describe('Loot ERC20 contract', function () {
       const nonce = await lootToken.nonces(users.summoner.address);
       const permitSignature = await signPermit(
         chainId,
-        lootToken.address,
+        await lootToken.getAddress(),
         signer,
         await lootToken.name(), // name -- replacing await lootToken.name()  with 'Loot' for new signing scope
         users.summoner.address,
@@ -402,7 +403,7 @@ describe('Loot ERC20 contract', function () {
         deadline
       );
 
-      const { v, r, s } = await ethers.utils.splitSignature(permitSignature);
+      const { v, r, s } = await ethers.Signature.from(permitSignature);
       await expect(
         lootToken.permit(
           users.summoner.address,

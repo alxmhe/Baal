@@ -1,8 +1,6 @@
 import * as fs from "fs";
-import { ethers } from "ethers";
 import { task } from "hardhat/config";
 
-import { BigNumber } from "@ethersproject/bignumber";
 import { encodeMultiSend, MetaTransaction } from "@gnosis.pm/safe-contracts";
 
 import { deployments as currentDeployments } from '../src/addresses/deployed';
@@ -58,7 +56,7 @@ task("baal:delegate", "Delegate shares")
     const Baal = await hre.ethers.getContractFactory("Baal");
     const baal = Baal.attach(taskArgs.dao);
     const Shares = await hre.ethers.getContractFactory("SharesERC20");
-    const shares = Shares.attach(baal.address);
+    const shares = Shares.attach(await baal.getAddress());
     const delegateVotes = await shares.delegate(taskArgs.to);
     console.log("Delegate votes txhash:", delegateVotes.hash);
   });
@@ -222,7 +220,7 @@ task("baal:member-prop", "Submits a new member proposal")
       multisend: any,
       actions: string[],
       tos: string[],
-      values: BigNumber[],
+      values: string[],
       operations: number[]
     ) => {
       let metatransactions: MetaTransaction[] = [];
@@ -283,8 +281,8 @@ task("baal:member-prop", "Submits a new member proposal")
     const encodedAction = encodeMultiAction2(
       multisend,
       [mintLootAction, mintSharesAction],
-      [baal.address, baal.address],
-      [BigNumber.from(0), BigNumber.from(0)],
+      [await baal.getAddress(), await baal.getAddress()],
+      ['0', '0'],
       [0, 0, 0]
     );
 
@@ -322,7 +320,7 @@ task("baal:shaman-prop", "Submits a new shman proposal")
       multisend: any,
       actions: string[],
       tos: string[],
-      values: BigNumber[],
+      values: string[],
       operations: number[]
     ) => {
       let metatransactions: MetaTransaction[] = [];
@@ -370,8 +368,8 @@ task("baal:shaman-prop", "Submits a new shman proposal")
     const encodedAction = encodeMultiAction2(
       multisend,
       [addShamanAction],
-      [baal.address],
-      [BigNumber.from(0)],
+      [await baal.getAddress()],
+      ['0'],
       [0, 0, 0]
     );
 
@@ -421,7 +419,7 @@ task("baal:summon", "Summons a new DAO")
     const chainId = await getChainId();
     const _addresses = await getSetupAddresses(chainId, network, deployments);
 
-    const zeroAddress = ethers.constants.AddressZero;
+    const zeroAddress = ethers.ZeroAddress;
     const metadataConfig = {
       CONTENT: taskArgs.meta || '{"name":"test"}',
       TAG: "daohaus.summoner.daoProfile",
@@ -451,7 +449,7 @@ task("baal:summon", "Summons a new DAO")
       throw "arrays must be of the same length";
     }
 
-    const abiCoder = hre.ethers.utils.defaultAbiCoder;
+    const abiCoder = hre.ethers.AbiCoder.defaultAbiCoder();
 
     const getBaalParams = async function (
       baal: any,
@@ -526,7 +524,7 @@ task("baal:summon", "Summons a new DAO")
       // const initalizationActionsMulti = encodeMultiAction(
       //   multisend,
       //   [setAdminConfig, setGovernanceConfig, setGuildTokens, setShaman, mintShares, mintLoot],
-      //   [baal.address, baal.address, baal.address, baal.address, baal.address, baal.address],
+      //   [await baal.getAddress(), await baal.getAddress(), await baal.getAddress(), await baal.getAddress(), await baal.getAddress(), await baal.getAddress()],
       //   [BigNumber.from(0), BigNumber.from(0), BigNumber.from(0), BigNumber.from(0), BigNumber.from(0), BigNumber.from(0)],
       //   [0, 0, 0, 0, 0, 0]
       // )
@@ -605,7 +603,7 @@ task("baal:summon", "Summons a new DAO")
         encodedInitParams.initParams,
         encodedInitParams.initalizationActions,
         randomSeed,
-        hre.ethers.utils.formatBytes32String("daohausCLI"),
+        hre.ethers.encodeBytes32String("daohausCLI"),
         "test cli vault"
       );
     } else {
@@ -615,7 +613,7 @@ task("baal:summon", "Summons a new DAO")
         encodedInitParams.initParams,
         encodedInitParams.initalizationActions,
         randomSeed,
-        hre.ethers.utils.formatBytes32String("daohausCLI")
+        hre.ethers.encodeBytes32String("daohausCLI")
       );
     }
 
@@ -625,7 +623,7 @@ task("baal:summon", "Summons a new DAO")
     const address = await deployers[0].getAddress();
     const balance = await deployers[0].getBalance();
     console.log("Account address:", address);
-    console.log("Account balance:", hre.ethers.utils.formatEther(balance));
+    console.log("Account balance:", hre.ethers.formatEther(balance));
   });
 
 
@@ -664,7 +662,7 @@ task("baal:summon-advToken", "Summons a new DAO from Higher order factory")
       ? (await deployments.get('Baal'))?.address
       : currentDeployments[0]['v103'][network.name as SupportedNetwork]?.addresses?.baalSingleton
   }
-  const zeroAddress = ethers.constants.AddressZero;
+  const zeroAddress = ethers.ZeroAddress;
   const metadataConfig = {
     CONTENT: taskArgs.meta || '{"name":"test"}',
     TAG: "daohaus.summoner.daoProfile",
@@ -694,7 +692,7 @@ task("baal:summon-advToken", "Summons a new DAO from Higher order factory")
     throw "arrays must be of the same length";
   }
 
-  const abiCoder = hre.ethers.utils.defaultAbiCoder;
+  const abiCoder = hre.ethers.AbiCoder.defaultAbiCoder();
 
   const getBaalParams = async function (
     baal: any,
@@ -838,5 +836,5 @@ task("baal:summon-advToken", "Summons a new DAO from Higher order factory")
   const address = await deployers[0].getAddress();
   const balance = await deployers[0].getBalance();
   console.log("Account address:", address);
-  console.log("Account balance:", hre.ethers.utils.formatEther(balance));
+  console.log("Account balance:", hre.ethers.formatEther(balance));
 });

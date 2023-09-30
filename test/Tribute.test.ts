@@ -1,5 +1,4 @@
 import { expect } from 'chai';
-import { BigNumber } from 'ethers';
 import { ethers } from 'hardhat';
 
 import {
@@ -76,9 +75,9 @@ describe("Tribute proposal type", function () {
     const requestedShares = 100;
 
     it("Allows applicant to tribute tokens in exchange for shares", async () => {
-      expect(await weth.balanceOf(gnosisSafe.address)).to.equal(0);
+      expect(await weth.balanceOf(await gnosisSafe.getAddress())).to.equal(0);
 
-      await users.applicant.weth?.approve(gnosisSafe.address, tribute);
+      await users.applicant.weth?.approve(await gnosisSafe.getAddress(), tribute);
 
       const currentShares = await sharesToken.balanceOf(users.applicant.address);
 
@@ -88,14 +87,14 @@ describe("Tribute proposal type", function () {
       ]);
       const sendTribute = weth.interface.encodeFunctionData(
         "transferFrom",
-        [users.applicant.address, gnosisSafe.address, tribute]
+        [users.applicant.address, await gnosisSafe.getAddress(), tribute]
       );
 
       const encodedProposal = encodeMultiAction(
         multisend,
         [mintShares, sendTribute],
-        [baal.address, weth.address],
-        [BigNumber.from(0), BigNumber.from(0)],
+        [await baal.getAddress(), await weth.getAddress()],
+        ['0', '0'],
         [0, 0]
       );
 
@@ -103,23 +102,23 @@ describe("Tribute proposal type", function () {
         encodedProposal,
         defaultProposalSettings.EXPIRATION,
         defaultProposalSettings.BAAL_GAS,
-        ethers.utils.id(defaultProposalSettings.DETAILS),
+        ethers.id(defaultProposalSettings.DETAILS),
         { value: defaultDAOSettings.PROPOSAL_OFFERING }
       );
       await baal.submitVote(1, yes);
       await moveForwardPeriods(defaultDAOSettings.VOTING_PERIOD_IN_SECONDS, 2);
       await baal.processProposal(1, encodedProposal);
 
-      expect(await weth.balanceOf(gnosisSafe.address)).to.equal(tribute);
+      expect(await weth.balanceOf(await gnosisSafe.getAddress())).to.equal(BigInt(tribute));
       expect(await sharesToken.balanceOf(users.applicant.address)).to.equal(
-        currentShares.add(requestedShares) // current shares plus new shares
+        currentShares + BigInt(requestedShares) // current shares plus new shares
       );
     });
 
     it("EXPLOIT - Allows another proposal to spend tokens intended for tribute", async () => {
-      expect(await weth.balanceOf(gnosisSafe.address)).to.equal(0);
+      expect(await weth.balanceOf(await gnosisSafe.getAddress())).to.equal(0);
 
-      await users.applicant.weth?.approve(gnosisSafe.address, tribute);
+      await users.applicant.weth?.approve(await gnosisSafe.getAddress(), tribute);
 
       const currentShares = await sharesToken.balanceOf(users.applicant.address);
 
@@ -129,21 +128,21 @@ describe("Tribute proposal type", function () {
       ]);
       const sendTribute = weth.interface.encodeFunctionData(
         "transferFrom",
-        [users.applicant.address, gnosisSafe.address, tribute]
+        [users.applicant.address, await gnosisSafe.getAddress(), tribute]
       );
 
       const encodedProposal = encodeMultiAction(
         multisend,
         [mintShares, sendTribute],
-        [baal.address, weth.address],
-        [BigNumber.from(0), BigNumber.from(0)],
+        [await baal.getAddress(), await weth.getAddress()],
+        ['0', '0'],
         [0, 0]
       );
       const maliciousProposal = encodeMultiAction(
         multisend,
         [sendTribute],
-        [weth.address],
-        [BigNumber.from(0)],
+        [await weth.getAddress()],
+        ['0'],
         [0]
       );
 
@@ -151,14 +150,14 @@ describe("Tribute proposal type", function () {
         encodedProposal,
         defaultProposalSettings.EXPIRATION,
         defaultProposalSettings.BAAL_GAS,
-        ethers.utils.id(defaultProposalSettings.DETAILS),
+        ethers.id(defaultProposalSettings.DETAILS),
         { value: defaultDAOSettings.PROPOSAL_OFFERING }
       );
       await users.applicant.baal?.submitProposal(
         maliciousProposal,
         defaultProposalSettings.EXPIRATION,
         defaultProposalSettings.BAAL_GAS,
-        ethers.utils.id(defaultProposalSettings.DETAILS),
+        ethers.id(defaultProposalSettings.DETAILS),
         { value: defaultDAOSettings.PROPOSAL_OFFERING }
       );
       await baal.submitVote(1, no);
@@ -166,22 +165,22 @@ describe("Tribute proposal type", function () {
       await moveForwardPeriods(defaultDAOSettings.VOTING_PERIOD_IN_SECONDS, 2);
       // await baal.processProposal(1, encodedProposal)
       await baal.processProposal(2, maliciousProposal);
-      expect(await weth.balanceOf(gnosisSafe.address)).to.equal(tribute);
+      expect(await weth.balanceOf(await gnosisSafe.getAddress())).to.equal(tribute);
       expect(await sharesToken.balanceOf(users.applicant.address)).to.equal(currentShares); // only current shares no new ones
     });
   });
 
   describe("Baal with NO proposal offering - Safe Tribute Proposal", () => {
 
-    const tribute = 100;
-    const requestedShares = 1234;
-    const requestedLoot = 1007;
+    const tribute = BigInt(100);
+    const requestedShares = BigInt(1234);
+    const requestedLoot = BigInt(1007);
 
     it("allows external tribute minion to submit share proposal in exchange for tokens", async () => {
-      expect(await weth.balanceOf(gnosisSafe.address)).to.equal(0);
-      expect(await weth.balanceOf(users.applicant.address)).to.equal(1000);
+      expect(await weth.balanceOf(await gnosisSafe.getAddress())).to.equal(0);
+      expect(await weth.balanceOf(users.applicant.address)).to.equal(BigInt(1000));
 
-      await users.applicant.weth?.approve(tributeMinion.address, 10000);
+      await users.applicant.weth?.approve(await tributeMinion.getAddress(), 10000);
 
       const currentShares = await sharesToken.balanceOf(users.applicant.address);
 
@@ -189,16 +188,16 @@ describe("Tribute proposal type", function () {
         tributeMinion: users.applicant.tributeMinion,
         baal,
         applicantAddress: users.applicant.address,
-        tributeToken: weth.address,
+        tributeToken: await weth.getAddress(),
         tribute,
         requestedShares,
         requestedLoot,
       });
 
       expect(await sharesToken.balanceOf(users.applicant.address)).to.equal(
-        requestedShares + parseInt(currentShares.toString())
+        currentShares + requestedShares
       );
-      expect(await weth.balanceOf(gnosisSafe.address)).to.equal(tribute);
+      expect(await weth.balanceOf(await gnosisSafe.getAddress())).to.equal(tribute);
     });
   });
 
@@ -209,9 +208,9 @@ describe("Tribute proposal type", function () {
     let sharesToken: Shares;
     let tributeMinion: TributeMinion;
 
-    const tribute = 100;
-    const requestedShares = 1234;
-    const requestedLoot = 1007;
+    const tribute = BigInt(100);
+    const requestedShares = BigInt(1234);
+    const requestedLoot = BigInt(1007);
 
     this.beforeEach(async function () {
       daoConfig = {
@@ -233,10 +232,10 @@ describe("Tribute proposal type", function () {
     });
 
     it("allows external tribute minion to submit share proposal in exchange for tokens", async () => {
-      expect(await weth.balanceOf(gnosisSafe.address)).to.equal(0);
-      expect(await weth.balanceOf(users.applicant.address)).to.equal(1000);
+      expect(await weth.balanceOf(await gnosisSafe.getAddress())).to.equal(0);
+      expect(await weth.balanceOf(users.applicant.address)).to.equal(BigInt(1000));
 
-      await users.applicant.weth?.approve(tributeMinion.address, 10000);
+      await users.applicant.weth?.approve(await tributeMinion.getAddress(), 10000);
 
       const currentShares = await sharesToken.balanceOf(users.applicant.address);
 
@@ -244,7 +243,7 @@ describe("Tribute proposal type", function () {
         tributeMinion: users.applicant.tributeMinion,
         baal,
         applicantAddress: users.applicant.address,
-        tributeToken: weth.address,
+        tributeToken: await weth.getAddress(),
         tribute,
         requestedShares,
         requestedLoot,
@@ -252,32 +251,32 @@ describe("Tribute proposal type", function () {
       });
 
       expect(await sharesToken.balanceOf(users.applicant.address)).to.equal(
-        requestedShares + parseInt(currentShares.toString())
+        requestedShares + currentShares
       );
-      expect(await weth.balanceOf(gnosisSafe.address)).to.equal(tribute);
+      expect(await weth.balanceOf(await gnosisSafe.getAddress())).to.equal(tribute);
     });
 
     // tribute proposal can not self sponsor because of potential tx.origin issues
     // it("should not fail to tribute without offering", async () => {
     //   const currentShares = await sharesToken.balanceOf(users.summoner.address);
     //   // CONDITION: Member should be able to self-sponsor if shares >= SPONSOR_THRESHOLD
-    //   expect(currentShares.gte(BigNumber.from(daoConfig.SPONSOR_THRESHOLD)));
+    //   expect(currentShares.gte(BigInt(daoConfig.SPONSOR_THRESHOLD)));
 
     //   // const summonerTributeMinion = tributeMinion.connect(summoner);
     //   // const requestedShares = 1234;
     //   // const tribute = 1000;
     //   // const tributeToken = weth.connect(summoner);
 
-    //   expect(await weth.balanceOf(gnosisSafe.address)).to.equal(0);
+    //   expect(await weth.balanceOf(await gnosisSafe.getAddress())).to.equal(0);
     //   expect(await weth.balanceOf(users.summoner.address)).to.gte(tribute);
 
-    //   await users.summoner.weth?.approve(tributeMinion.address, tribute);
+    //   await users.summoner.weth?.approve(await tributeMinion.getAddress(), tribute);
 
     //   users.summoner.tributeMinion && await proposalHelpers.submitAndProcessTributeProposal({
     //     tributeMinion: users.summoner.tributeMinion,
     //     baal,
     //     applicantAddress: users.summoner.address,
-    //     tributeToken: weth.address,
+    //     tributeToken: await weth.getAddress(),
     //     tribute,
     //     requestedShares,
     //     requestedLoot,
@@ -286,23 +285,23 @@ describe("Tribute proposal type", function () {
 
     //   expect(await sharesToken.balanceOf(users.summoner.address))
     //     .to.eq(
-    //       currentShares.add(BigNumber.from(requestedShares)),
+    //       currentShares.add(BigInt(requestedShares)),
     //     );
     // });
 
     it("fails to tribute without offering", async () => {
       const currentShares = await sharesToken.balanceOf(users.applicant.address);
       // CONDITION: Member should send tribute if shares < SPONSOR_THRESHOLD
-      expect(currentShares.lt(BigNumber.from(daoConfig.SPONSOR_THRESHOLD)));
+      expect(currentShares < BigInt(daoConfig.SPONSOR_THRESHOLD));
 
-      expect(await weth.balanceOf(gnosisSafe.address)).to.equal(0);
+      expect(await weth.balanceOf(await gnosisSafe.getAddress())).to.equal(0);
       expect(await weth.balanceOf(users.applicant.address)).to.equal(1000);
 
-      await users.applicant.weth?.approve(tributeMinion.address, 10000);
+      await users.applicant.weth?.approve(await tributeMinion.getAddress(), 10000);
 
       users.applicant.tributeMinion && await expect(users.applicant.tributeMinion.submitTributeProposal(
-        baal.address,
-        weth.address,
+        await baal.getAddress(),
+        await weth.getAddress(),
         tribute,
         requestedShares,
         requestedLoot,

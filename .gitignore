@@ -11,6 +11,8 @@ src/types/
 abi/
 export/
 .openzeppelin/
+deployments/localhost
+deployments/hardhat
 
 .env
 .env.production

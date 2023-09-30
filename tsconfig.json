@@ -23,4 +23,7 @@
     "./test",
     "typechain/**/*"
   ],
+  "exclude": [
+    "src/types/factories/@openzeppelin/contracts-upgradeable/**/*.ts"
+  ]
 }

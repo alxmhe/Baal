@@ -1,5 +1,4 @@
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
-import { BigNumber } from 'ethers'
+import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 
 export const signPermit = async (
   chainId: number,
@@ -9,7 +8,7 @@ export const signPermit = async (
   owner: string,
   spender: string,
   value: number,
-  nonce: BigNumber,
+  nonce: bigint,
   deadline: number
 ) => {
   // "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
@@ -31,7 +30,7 @@ export const signPermit = async (
     ],
   }
 
-  const sig = await signer._signTypedData(domain, types, {
+  const sig = await signer.signTypedData(domain, types, {
     owner,
     spender,
     value,

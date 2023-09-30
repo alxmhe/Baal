@@ -11,7 +11,7 @@ const deployFn: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 	console.log('Deployer address:', `${chainId}:${deployer}`);
 	console.log(
 		'Deployer balance:',
-		ethers.utils.formatEther(await ethers.provider.getBalance(deployer)),
+		ethers.formatEther(await ethers.provider.getBalance(deployer)),
 	);
 
 	const { deploy } = deployments;

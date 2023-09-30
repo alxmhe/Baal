@@ -1,4 +1,4 @@
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
+import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 
 export const signVote = async (
   chainId: number,
@@ -38,7 +38,7 @@ export const signVote = async (
     support
   }
 
-  const sig = await signer._signTypedData(domain, types, values)
+  const sig = await signer.signTypedData(domain, types, values)
 
   return sig
 };

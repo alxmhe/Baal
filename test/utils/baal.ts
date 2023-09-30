@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { BigNumber, BigNumberish, Contract, ContractTransaction } from 'ethers';
+import { BigNumberish, Contract, ContractTransaction, Provider } from 'ethers';
 import { ethers } from 'hardhat';
 
 import { Baal, BaalSummoner, MultiSend, Poster } from '../../src/types';
@@ -18,7 +18,7 @@ export type DAOSettings = {
     TOKEN_SYMBOL: any;
 };
 
-export const abiCoder = ethers.utils.defaultAbiCoder;
+export const abiCoder = ethers.AbiCoder.defaultAbiCoder();
 
 export const revertMessages = {
     molochAlreadyInitialized: "Initializable: contract is already initialized",
@@ -176,14 +176,19 @@ export type NewBaalAddresses = {
 }
 
 export const getNewBaalAddresses = async (tx: ContractTransaction): Promise<NewBaalAddresses> => {
-    const receipt = await ethers.provider.getTransactionReceipt(tx.hash);
-    // console.log({logs: receipt.logs})
-    let baalSummonAbi = [
+    // @ts-expect-error
+    const receipt = await (ethers.provider as Provider).getTransactionReceipt(tx.hash);
+    if (!receipt) throw new Error('No receipt');
+    const baalSummonAbi = [
         "event SummonBaal(address indexed baal, address indexed loot, address indexed shares, address safe, address forwarder, uint256 existingAddrs)",
     ];
-    let iface = new ethers.utils.Interface(baalSummonAbi);
-    let log = iface.parseLog(receipt.logs[receipt.logs.length - 1]);
-    const { baal, loot, shares, safe } = log.args;
+    const iface = new ethers.Interface(baalSummonAbi);
+    const _log = receipt.logs[receipt.logs.length - 1];
+    const log = iface.parseLog({
+        data: _log.data,
+        topics: [..._log.topics] as (typeof _log)['topics'][0][]
+    });
+    const { baal, loot, shares, safe } = log!.args;
     return { baal, loot, shares, safe };
 };
 
@@ -195,10 +200,10 @@ export const getBaalParams = async function (
     shamans: [string[], number[]],
     shares: [string[], number[]],
     loots: [string[], number[]],
-    safeAddress: string = ethers.constants.AddressZero,
-    forwarderAddress: string = ethers.constants.AddressZero,
-    lootAddress: string = ethers.constants.AddressZero,
-    sharesAddress: string = ethers.constants.AddressZero,
+    safeAddress: string = ethers.ZeroAddress,
+    forwarderAddress: string = ethers.ZeroAddress,
+    lootAddress: string = ethers.ZeroAddress,
+    sharesAddress: string = ethers.ZeroAddress,
 ) {
     const governanceConfig = abiCoder.encode(
         ["uint32", "uint32", "uint256", "uint256", "uint256", "uint256"],
@@ -235,7 +240,7 @@ export const getBaalParams = async function (
     ]);
     const posterFromBaal = await baal.interface.encodeFunctionData(
         "executeAsBaal",
-        [poster.address, 0, postMetaData]
+        [await poster.getAddress(), 0, postMetaData]
     );
 
     const initalizationActions = [
@@ -293,7 +298,7 @@ export const setupBaal = async ({
         lootAddress,
         sharesAddress,
     );
-    const tx = await (baalSummoner as BaalSummoner).summonBaal(
+    const tx = await baalSummoner.summonBaal(
         encodedInitParams.initParams,
         encodedInitParams.initalizationActions,
         saltNonce,
@@ -318,7 +323,7 @@ export const submitAndProcessProposal = async ({
     daoSettings = defaultDAOSettings,
     extraSeconds = 2,
   }: ProposalParams) => {
-    await baal.submitProposal(encodedAction, proposal.expiration, proposal.baalGas, ethers.utils.id(proposal.details));
+    await baal.submitProposal(encodedAction, proposal.expiration, proposal.baalGas, ethers.id(proposal.details));
     const id = proposalId ? proposalId : await baal.proposalCount();
     await baal.submitVote(id, true);
     await moveForwardPeriods(daoSettings.VOTING_PERIOD_IN_SECONDS, extraSeconds);
@@ -340,8 +345,8 @@ export const setShamanProposal = async (
     const setShamanAction = encodeMultiAction(
       multisend,
       [setShaman],
-      [baal.address],
-      [BigNumber.from(0)],
+      [await baal.getAddress()],
+      ['0'],
       [0]
     );
   

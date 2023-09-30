@@ -9,10 +9,10 @@ export const blockNumber = async () => {
 };
 
 export const moveForwardPeriods = async (
-    blockTimeInSecs: number,
-    blocks: number,
-    extra: number = 1
+    blockTimeInSecs: number | bigint,
+    blocks: number | bigint,
+    extra: number | bigint = 1
 ) => {
-    await mine(blocks + extra, { interval: blockTimeInSecs });
+    await mine(BigInt(blocks) + BigInt(extra), { interval: BigInt(blockTimeInSecs) });
     return true;
 };

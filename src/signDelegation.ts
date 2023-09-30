@@ -1,4 +1,4 @@
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
+import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 
 export const signDelegation = async (
   chainId: number,
@@ -32,7 +32,7 @@ export const signDelegation = async (
     expiry,
   }
 
-  const sig = await signer._signTypedData(domain, types, values)
+  const sig = await signer.signTypedData(domain, types, values)
 
   return sig
 };

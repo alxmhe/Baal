@@ -15,7 +15,7 @@ const deployFn: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
     const _addresses = await getSetupAddresses(chainId, network, deployments);
 
-    if (_addresses.DAO === ethers.constants.AddressZero && network.name !== 'hardhat') {
+    if (_addresses.DAO === ethers.ZeroAddress && network.name !== 'hardhat') {
 		console.log('You need to set DAO adress to transfer ownership of summoner', _addresses.DAO);
 		return;
 	}
@@ -24,7 +24,7 @@ const deployFn: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 	console.log('Deployer address:', `${chainId}:${deployer}`);
 	console.log(
 		'Deployer balance:',
-		ethers.utils.formatEther(await ethers.provider.getBalance(deployer)),
+		ethers.formatEther(await ethers.provider.getBalance(deployer)),
 	);
 
     const { deploy } = deployments;

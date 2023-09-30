@@ -2,9 +2,11 @@ import { deployments } from 'hardhat';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 
 import { Baal, BaalLessShares, BaalSummoner, GnosisSafe, Loot, MockBaal, MultiSend, Poster, Shares, TestERC20, TributeMinion } from '../../src/types';
-import { DAOSettings, NewBaalAddresses, NewBaalParams, ProposalParams, ProposalType, SummonSetup, defaultDAOSettings, defaultSummonSetup, setShamanProposal, setupBaal, submitAndProcessProposal } from './baal';
+import { DAOSettings, NewBaalAddresses, NewBaalParams, ProposalParams, SummonSetup, defaultDAOSettings, defaultSummonSetup, setShamanProposal, setupBaal, submitAndProcessProposal } from './baal';
 import { BigNumberish, ContractTransaction } from 'ethers';
 import { TributeProposalParams, TributeProposalStatus, submitAndProcessTributeProposal } from './tribute';
+import { Contract, Provider } from 'ethers';
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers';
 
 export type Signer = {
     address: string;
@@ -85,10 +87,13 @@ export const setupUsersDefault = async ({
     hre,
 }: SetupUsersParams) => {
     const { ethers, deployments, getNamedAccounts, getUnnamedAccounts } = hre;
-    const { deployer } = await getNamedAccounts();
     const [summoner, applicant, shaman, s1, s2, s3, s4, s5, s6] = await getUnnamedAccounts();
 
-    const tributeMinion = (await ethers.getContract('TributeMinion', deployer)) as TributeMinion;
+    // @ts-expect-error
+    const deployer = (await ethers.getSigners())[0];
+
+    const tributeMinionDeployed = await deployments.get('TributeMinion');
+    const tributeMinion = (await ethers.getContractAt('TributeMinion', tributeMinionDeployed.address)) as TributeMinion;
 
     const lootTokenAddress = await baal.lootToken();
     const lootToken = (await ethers.getContractAt('Loot', lootTokenAddress)) as Loot;
@@ -96,25 +101,26 @@ export const setupUsersDefault = async ({
     const sharesTokenAddress = await baal.sharesToken();
     const sharesToken = (await ethers.getContractAt('Shares', sharesTokenAddress)) as Shares;
 
+
     const wethDeployed = await deployments.deploy('TestERC20', {
-        from: deployer,
-        args: ['WETH', 'WETH', ethers.utils.parseUnits('10000000', 'ether')]
+        from: deployer.address,
+        args: ['WETH', 'WETH', ethers.parseUnits('10000000', 'ether')]
     });
 
     const daiDeployed = await deployments.deploy('TestERC20', {
-        from: deployer,
-        args: ['DAI', 'DAI', ethers.utils.parseUnits('10000000', 'ether')]
+        from: deployer.address,
+        args: ['DAI', 'DAI', ethers.parseUnits('10000000', 'ether')]
     });
 
-    const weth = (await ethers.getContractAt('TestERC20', wethDeployed.address, deployer)) as TestERC20;
+    const weth = (await ethers.getContractAt('TestERC20', wethDeployed.address)) as TestERC20;
     await weth.transfer(summoner, 1000);
     await weth.transfer(applicant, 1000);
 
-    const dai = (await ethers.getContractAt('TestERC20', daiDeployed.address, deployer)) as TestERC20;
-    await dai.transfer(summoner, ethers.utils.parseUnits('10', 'ether'));
-    await dai.transfer(applicant, ethers.utils.parseUnits('10', 'ether'));
-    await dai.transfer(s1, ethers.utils.parseUnits('10', 'ether'));
-    await dai.transfer(s2, ethers.utils.parseUnits('10', 'ether'));
+    const dai = (await ethers.getContractAt('TestERC20', daiDeployed.address)) as TestERC20;
+    await dai.transfer(summoner, ethers.parseUnits('10', 'ether'));
+    await dai.transfer(applicant, ethers.parseUnits('10', 'ether'));
+    await dai.transfer(s1, ethers.parseUnits('10', 'ether'));
+    await dai.transfer(s2, ethers.parseUnits('10', 'ether'));
 
     return {
         weth,
@@ -123,70 +129,71 @@ export const setupUsersDefault = async ({
             summoner: {
                 address: summoner,
                 baal: baal,
-                loot: (await ethers.getContractAt('Loot', lootToken.address, summoner)) as Loot,
-                lootInitial: (await lootToken.balanceOf(summoner)).toNumber(),
-                shares: (await ethers.getContractAt('Shares', sharesTokenAddress, summoner)) as Shares,
-                sharesInitial: (await sharesToken.balanceOf(summoner)).toNumber(),
-                tributeMinion: (await ethers.getContractAt('TributeMinion', tributeMinion.address, summoner)) as TributeMinion,
-                weth: (await ethers.getContractAt('TestERC20', weth.address, summoner)) as TestERC20,
-                dai: (await ethers.getContractAt('TestERC20', dai.address, summoner)) as TestERC20,
+                loot: await ethers.getContractAt('Loot', lootTokenAddress, await ethers.getSigner(summoner)),
+                lootInitial: (await lootToken.balanceOf(summoner)).toString(),
+                shares: await ethers.getContractAt('Shares', sharesTokenAddress, await ethers.getSigner(summoner)),
+                sharesInitial: (await sharesToken.balanceOf(summoner)).toString(),
+                tributeMinion: await ethers.getContractAt('TributeMinion', tributeMinionDeployed.address, await ethers.getSigner(summoner)),
+                weth: await ethers.getContractAt('TestERC20', wethDeployed.address, await ethers.getSigner(summoner)),
+                dai: await ethers.getContractAt('TestERC20', daiDeployed.address, await ethers.getSigner(summoner)),
             },
             applicant: {
                 address: applicant,
-                baal: (await ethers.getContractAt('Baal', baal.address, applicant)) as Baal,
-                loot: (await ethers.getContractAt('Loot', lootToken.address, applicant)) as Loot,
-                lootInitial: (await lootToken.balanceOf(applicant)).toNumber(),
-                shares: (await ethers.getContractAt('Shares', sharesToken.address, applicant)) as Shares,
-                sharesInitial: (await sharesToken.balanceOf(applicant)).toNumber(),
-                tributeMinion: (await ethers.getContractAt('TributeMinion', tributeMinion.address, applicant)) as TributeMinion,
-                weth: (await ethers.getContractAt('TestERC20', weth.address, applicant)) as TestERC20,
-                dai: (await ethers.getContractAt('TestERC20', dai.address, applicant)) as TestERC20,
+                baal: await ethers.getContractAt('Baal', await baal.getAddress(), await ethers.getSigner(applicant)),
+                loot: await ethers.getContractAt('Loot', lootTokenAddress, await ethers.getSigner(applicant)),
+                lootInitial: (await lootToken.balanceOf(applicant)).toString(),
+                shares: await ethers.getContractAt('Shares', sharesTokenAddress, await ethers.getSigner(applicant)),
+                sharesInitial: (await sharesToken.balanceOf(applicant)).toString(),
+                tributeMinion: await ethers.getContractAt('TributeMinion', tributeMinionDeployed.address, await ethers.getSigner(applicant)),
+                weth: await ethers.getContractAt('TestERC20', wethDeployed.address, await ethers.getSigner(applicant)),
+                dai: await ethers.getContractAt('TestERC20', daiDeployed.address, await ethers.getSigner(applicant)),
             },
             shaman: {
                 address: shaman,
-                baal: (await ethers.getContractAt('Baal', baal.address, shaman)) as Baal,
-                loot: (await ethers.getContractAt('Loot', lootToken.address, shaman)) as Loot,
+                baal: await ethers.getContractAt('Baal', await baal.getAddress(), await ethers.getSigner(shaman)),
+                loot: await ethers.getContractAt('Loot', lootTokenAddress, await ethers.getSigner(shaman)),
                 lootInitial: 0,
                 sharesInitial: 0,
-                shares: (await ethers.getContractAt('Shares', sharesToken.address, shaman)) as Shares,
+                shares: await ethers.getContractAt('Shares', sharesTokenAddress, await ethers.getSigner(shaman)),
             },
             s1: {
                 address: s1,
-                baal: (await ethers.getContractAt('Baal', baal.address, s1)) as Baal,
+                baal: await ethers.getContractAt('Baal', await baal.getAddress(), await ethers.getSigner(s1)),
+                loot: await ethers.getContractAt('Loot', lootTokenAddress, await ethers.getSigner(s1)),
                 lootInitial: 0,
                 sharesInitial: 0,
-                weth: (await ethers.getContractAt('TestERC20', weth.address, s1)) as TestERC20,
-                dai: (await ethers.getContractAt('TestERC20', dai.address, s1)) as TestERC20,
+                weth: await ethers.getContractAt('TestERC20', wethDeployed.address, await ethers.getSigner(s1)),
+                dai: await ethers.getContractAt('TestERC20', daiDeployed.address, await ethers.getSigner(s1)),
             },
             s2: {
                 address: s2,
-                baal: (await ethers.getContractAt('Baal', baal.address, s2)) as Baal,
+                baal: await ethers.getContractAt('Baal', await baal.getAddress(), await ethers.getSigner(s2)),
                 lootInitial: 0,
                 sharesInitial: 0,
-                weth: (await ethers.getContractAt('TestERC20', weth.address, s2)) as TestERC20,
-                dai: (await ethers.getContractAt('TestERC20', dai.address, s2)) as TestERC20,
+                weth: await ethers.getContractAt('TestERC20', wethDeployed.address, await ethers.getSigner(s2)),
+                dai: await ethers.getContractAt('TestERC20', daiDeployed.address, await ethers.getSigner(s2)),
             },
             s3: {
                 address: s3,
-                baal: (await ethers.getContractAt('Baal', baal.address, s3)) as Baal,
+                baal: await ethers.getContractAt('Baal', await baal.getAddress(), await ethers.getSigner(s3)),
                 lootInitial: 0,
                 sharesInitial: 0,
             },
             s4: {
                 address: s4,
-                baal: (await ethers.getContractAt('Baal', baal.address, s4)) as Baal,
+                baal: await ethers.getContractAt('Baal', await baal.getAddress(), await ethers.getSigner(s4)),
                 lootInitial: 0,
                 sharesInitial: 0,
             },
             s5: {
                 address: s5,
-                baal: (await ethers.getContractAt('Baal', baal.address, s5)) as Baal,
+                baal: await ethers.getContractAt('Baal', await baal.getAddress(), await ethers.getSigner(s5)),
                 lootInitial: 0,
                 sharesInitial: 0,
             },
             s6: {
                 address: s6,
-                baal: (await ethers.getContractAt('Baal', baal.address, s6)) as Baal,
+                baal: await ethers.getContractAt('Baal', await baal.getAddress(), await ethers.getSigner(s6)),
                 lootInitial: 0,
                 sharesInitial: 0,
             },
@@ -203,7 +210,6 @@ export const baalSetup = deployments.createFixture<BaalSetupType, BaalSetupOpts>
 
     await deployments.fixture(['Infra', 'TributeMinion', 'BaalSummoner', ...(options?.fixtureTags || [])]); // Deployment Tags
 
-    console.log('baalSetup fixture', options);
     // console.log('deployments', Object.keys(await deployments.all()));
 
     const loot = options?.summonSetupOpts?.loot || defaultSummonSetup.loot;
@@ -212,10 +218,10 @@ export const baalSetup = deployments.createFixture<BaalSetupType, BaalSetupOpts>
     const sharesPaused = options?.summonSetupOpts?.sharesPaused || defaultSummonSetup.sharesPaused;
     const shamanPermissions = options?.summonSetupOpts?.shamanPermissions || defaultSummonSetup.shamanPermissions;
 
-    const baalSingleton = (await ethers.getContract('Baal', deployer)) as Baal;
-    const baalSummoner = (await ethers.getContract('BaalSummoner', deployer)) as BaalSummoner;
-    const poster = (await ethers.getContract('Poster', deployer)) as Poster
-    const tributeMinion = (await ethers.getContract('TributeMinion', deployer)) as TributeMinion;
+    const baalSingleton = await ethers.getContractAt('Baal', (await deployments.get('Baal')).address) as Baal;
+    const baalSummoner = await ethers.getContractAt('BaalSummoner', (await deployments.get('BaalSummoner')).address) as Contract & BaalSummoner;
+    const poster = await ethers.getContractAt('Poster', (await deployments.get('Poster')).address) as Poster;
+    const tributeMinion = await ethers.getContractAt('TributeMinion', (await deployments.get('TributeMinion')).address) as TributeMinion;
 
     const summonerDist = {
         shares: shares * 2,
@@ -253,23 +259,40 @@ export const baalSetup = deployments.createFixture<BaalSetupType, BaalSetupOpts>
         ? await options.setupBaalOverride(setupParams)
         : await setupBaal(setupParams); // use default setup
     // console.log('addresses', addresses);
-
-    const baal = (await ethers.getContractAt('Baal', addresses.baal, summoner)) as Baal;
+        
+    // @ts-expect-error
+    const baal = (await ethers.getContractAt('Baal', addresses.baal, await ethers.getSigner(summoner))) as Baal;
     const gnosisSafe = (await ethers.getContractAt('GnosisSafe', addresses.safe)) as GnosisSafe;
-
+    
     const lootTokenAddress = await baal.lootToken();
     const lootToken = (await ethers.getContractAt('Loot', lootTokenAddress)) as Loot;
-
+    
     const sharesTokenAddress = await baal.sharesToken();
     const sharesToken = (await ethers.getContractAt('Shares', sharesTokenAddress)) as Shares;
+
+    const usersSetup = options?.setupUsersOverride
+        ? await options.setupUsersOverride({ addresses, baal, hre })
+        : await setupUsersDefault({ addresses, baal, hre });
 
     const {
         dai,
         weth,
         signers,
-    } = options?.setupUsersOverride
-        ? await options.setupUsersOverride({ addresses, baal, hre })
-        : await setupUsersDefault({ addresses, baal, hre });
+    } = usersSetup;
+
+    // console.log({
+    //     Loot: await lootToken.getAddress(),
+    //     Shares: await sharesToken.getAddress(),
+    //     // Baal: (await ethers.getContract('Baal', deployer)) as Baal,
+    //     Baal: await baal.getAddress(),
+    //     BaalSummoner: await baalSummoner.getAddress(),
+    //     GnosisSafe: await gnosisSafe.getAddress(),
+    //     // Poster: poster,
+    //     TributeMinion: await tributeMinion.getAddress(),
+    //     WETH: await weth.getAddress(),
+    //     DAI: await dai.getAddress(),
+    //     signers: Object.keys(signers).map(s => signers[s].address),
+    // });
 
     return {
         daoSettings,
@@ -279,7 +302,7 @@ export const baalSetup = deployments.createFixture<BaalSetupType, BaalSetupOpts>
         Baal: baal,
         BaalSummoner: baalSummoner,
         GnosisSafe: gnosisSafe,
-        MultiSend: (await ethers.getContract('MultiSend', deployer)) as MultiSend,
+        MultiSend: (await ethers.getContractAt('MultiSend', (await deployments.get('MultiSend')).address)) as MultiSend,
         // Poster: poster,
         TributeMinion: tributeMinion,
         WETH: weth,
@@ -297,8 +320,6 @@ export const baalSetup = deployments.createFixture<BaalSetupType, BaalSetupOpts>
             },
         }
     };
-
-
 }, 'setupBaal');
 
 export const mockBaalSetup = deployments.createFixture<MockBaalSetupType, unknown>(
@@ -310,43 +331,47 @@ export const mockBaalSetup = deployments.createFixture<MockBaalSetupType, unknow
 
     await deployments.fixture(['Infra', 'BaalSummoner']);
 
-    const lootSingleton = (await ethers.getContract('Loot', deployer)) as Loot;
-    await deployments.deploy('MockBaal', {
+    const lootSingleton = (await ethers.getContractAt('Loot', (await deployments.get('Loot')).address)) as Loot;
+    const mockBallDeployed = await deployments.deploy('MockBaal', {
         contract: 'MockBaal',
         from: deployer,
         args: [
-            lootSingleton.address,
+            await lootSingleton.getAddress(),
             'NAME',
             'SYMBOL'
         ],
         log: false,
     });
 
-    const mockBaal = (await ethers.getContract('MockBaal', deployer)) as MockBaal;
+    const mockBaal = await ethers.getContractAt('MockBaal', mockBallDeployed.address) as MockBaal;
     const lootTokenAddress = await mockBaal.lootToken();
+    const loot = await ethers.getContractAt('Loot', lootTokenAddress) as Loot;
     await mockBaal.mintLoot(summoner, 500);
 
     return {
-        Loot: (await ethers.getContractAt('Loot', lootTokenAddress)) as Loot,
+        Loot: loot,
         LootSingleton: lootSingleton,
         MockBaal: mockBaal,
         signers: {
             summoner: {
                 address: summoner,
-                loot: (await ethers.getContractAt('Loot', lootTokenAddress, summoner)) as Loot,
+                // @ts-expect-error
+                loot: await ethers.getContractAt('Loot', lootTokenAddress, await ethers.getSigner(summoner)),
                 lootInitial: 0,
                 sharesInitial: 0,
                 
             },
             s1: {
                 address: s1,
-                loot: (await ethers.getContractAt('Loot', lootTokenAddress, s1)) as Loot,
+                // @ts-expect-error
+                loot: await ethers.getContractAt('Loot', lootTokenAddress, await ethers.getSigner(s1)),
                 lootInitial: 0,
                 sharesInitial: 0,
             },
             s2: {
                 address: s2,
-                loot: (await ethers.getContractAt('Loot', lootTokenAddress, s2)) as Loot,
+                // @ts-expect-error
+                loot: await ethers.getContractAt('Loot', lootTokenAddress, await ethers.getSigner(s2)),
                 lootInitial: 0,
                 sharesInitial: 0,
             },
@@ -370,7 +395,7 @@ export const mockBaalLessSharesSetup = deployments.createFixture<MockBaalLessTok
         log: false,
     });
 
-    const baalLessSharesSingleton = (await ethers.getContract('BaalLessShares', deployer)) as BaalLessShares;
+    const baalLessSharesSingleton = (await ethers.getContractAt('BaalLessShares', (await deployments.get('BaalLessShares')).address)) as BaalLessShares;
 
     return {
         BaalLessShares: baalLessSharesSingleton,

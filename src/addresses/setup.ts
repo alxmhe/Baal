@@ -1,4 +1,4 @@
-import { constants } from 'ethers';
+import { ZeroAddress } from 'ethers';
 import { Network } from 'hardhat/types';
 import { DeploymentsExtension } from 'hardhat-deploy/types';
 
@@ -27,7 +27,7 @@ export const getSetupAddresses = async (
             poster: (await deployments?.get('Poster')).address,
             gnosisSafeProxyFactory: (await deployments.get('GnosisSafeProxyFactory'))?.address,
             moduleProxyFactory: (await deployments.get('ModuleProxyFactory'))?.address,
-            DAO: constants.AddressZero,
+            DAO: ZeroAddress,
         };
     }
 
